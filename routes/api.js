@@ -1,38 +1,45 @@
-// api.js
-const fetch = require("node-fetch");
-const helmet = require("helmet");
+'use strict';
+
+const express = require('express');
+const helmet = require('helmet');
+const fetch = require('node-fetch');
 
 module.exports = function (app) {
-  // Seguridad con Helmet
+
+  // Helmet Content Security Policy
   app.use(
     helmet.contentSecurityPolicy({
       useDefaults: true,
       directives: {
         defaultSrc: ["'self'"],
         scriptSrc: ["'self'"],
-        styleSrc: ["'self'"],
-      },
+        styleSrc: ["'self'"]
+      }
     })
   );
 
+  // Base de likes en memoria
   const stockLikes = {};
 
-  // Función para obtener datos de la API de stocks
+  // Función para obtener datos del stock
   async function getStockPrice(stock) {
     const url = `https://stock-price-checker-proxy.freecodecamp.rocks/v1/stock/${stock}/quote`;
     const res = await fetch(url);
+    if (!res.ok) throw new Error(`Error al obtener datos de ${stock}`);
     const data = await res.json();
     return {
       stock: data.symbol,
-      price: data.latestPrice,
+      price: data.latestPrice
     };
   }
 
-  // Endpoint principal
-  app.get("/api/stock-prices", async (req, res) => {
+  app.get('/api/stock-prices', async (req, res) => {
     try {
       let { stock, like } = req.query;
       const ip = req.ip;
+      like = like === 'true' || like === '1';
+
+      if (!stock) return res.status(400).json({ error: 'No stock symbol provided' });
 
       if (!Array.isArray(stock)) {
         stock = [stock];
@@ -44,12 +51,11 @@ module.exports = function (app) {
         s = s.toUpperCase();
         const stockData = await getStockPrice(s);
 
-        // Manejar likes como número (1 o 0)
         if (!stockLikes[s]) {
           stockLikes[s] = { likes: 0, ips: new Set() };
         }
 
-        if (like === "1" && !stockLikes[s].ips.has(ip)) {
+        if (like && !stockLikes[s].ips.has(ip)) {
           stockLikes[s].likes++;
           stockLikes[s].ips.add(ip);
         }
@@ -57,26 +63,27 @@ module.exports = function (app) {
         results.push({
           stock: stockData.stock,
           price: stockData.price,
-          likes: stockLikes[s].likes,
+          likes: stockLikes[s].likes
         });
       }
 
       if (results.length === 1) {
-        res.json({ stockData: results[0] });
+        return res.json({ stockData: results[0] });
       } else {
-        const rel_likes1 = results[0].likes - results[1].likes;
-        const rel_likes2 = results[1].likes - results[0].likes;
+        const rel_likes0 = results[0].likes - results[1].likes;
+        const rel_likes1 = results[1].likes - results[0].likes;
 
-        res.json({
+        return res.json({
           stockData: [
-            { stock: results[0].stock, price: results[0].price, rel_likes: rel_likes1 },
-            { stock: results[1].stock, price: results[1].price, rel_likes: rel_likes2 },
-          ],
+            { stock: results[0].stock, price: results[0].price, rel_likes: rel_likes0 },
+            { stock: results[1].stock, price: results[1].price, rel_likes: rel_likes1 }
+          ]
         });
       }
-    } catch (err) {
-      console.error(err);
-      res.status(500).json({ error: "Internal Server Error" });
+
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ error: 'Internal Server Error' });
     }
   });
 };
