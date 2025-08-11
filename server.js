@@ -10,24 +10,22 @@ const cors        = require('cors');
 const apiRoutes         = require('./routes/api.js');
 const fccTestingRoutes  = require('./routes/fcctesting.js');
 const runner            = require('./test-runner');
+const helmet            = require('helmet');
 
 const app = express();
 
 
 
-// app.disable("x-powered-by");
-
-
-// app.use(function(req, res, next) {
-//   res.set({
-//       "Access-Control-Allow-Origin": "*",
-//       "Access-Control-Allow-Headers":
-//       "Origin, X-Requested-With, content-type, Accept",
-//   });
-//   app.disable("x-powered-by");
-//   next();
-// });
-
+app.use(
+  helmet.contentSecurityPolicy({
+     useDefaults: true,
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'"],
+        styleSrc: ["'self'"]
+      }
+  })
+);
 
 app.use('/public', express.static(process.cwd() + '/public'));
 
