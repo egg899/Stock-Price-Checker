@@ -7,16 +7,21 @@ const fetch = require('node-fetch');
 module.exports = function (app) {
 
   // Helmet Content Security Policy
-  app.use(
-    helmet.contentSecurityPolicy({
-      useDefaults: true,
-      directives: {
-        defaultSrc: ["'self'"],
-        scriptSrc: ["'self'"],
-        styleSrc: ["'self'"]
-      }
-    })
-  );
+ app.use(
+  helmet.contentSecurityPolicy({
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'"],
+      styleSrc: ["'self'"],
+      imgSrc: ["'self'"],
+      connectSrc: ["'self'"],
+      fontSrc: ["'self'"],
+      objectSrc: ["'none'"],
+      mediaSrc: ["'none'"],
+      frameSrc: ["'none'"]
+    }
+  })
+);
 
   // Base de likes en memoria
   const stockLikes = {};
