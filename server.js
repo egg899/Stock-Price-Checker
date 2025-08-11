@@ -65,8 +65,8 @@ mongoose.connect(MONGO_URI, {
 })
 .then(async () => {
   console.log('MongoDB connected');
-  await Stock.deleteMany({});
-  console.log('Base de datos reseteada al iniciar');
+  // await Stock.deleteMany({});
+  // console.log('Base de datos reseteada al iniciar');
 
   // Iniciar servidor después del reset
   const listener = app.listen(process.env.PORT || 3000, function () {

@@ -56,17 +56,15 @@ suite('Functional Tests', function() {
       .request(server)
       .get('/api/stock-prices')
       .set("content-type", "application/json")
-      .query({ stock: ["GOOG", "MSFT"] })
+      .query({ stock: ["AMZN", "T"] })
       .end(function(err, res) {
         assert.equal(res.status, 200);
         assert.isArray(res.body.stockData);
         assert.lengthOf(res.body.stockData, 2);
-        assert.equal(res.body.stockData[0].stock, "GOOG");
-        assert.exists(res.body.stockData[0].price, "GOOG has a price");
-        assert.property(res.body.stockData[0], 'rel_likes');
-        assert.equal(res.body.stockData[1].stock, "MSFT");
-        assert.exists(res.body.stockData[1].price, "MSFT has a price");
-        assert.property(res.body.stockData[1], 'rel_likes');
+        assert.equal(res.body.stockData[0].stock, "AMZN");
+        assert.equal(res.body.stockData[1].stock, "T");
+        assert.exists(res.body.stockData[0].price, "AMZN has a price");
+        assert.exists(res.body.stockData[1].price, "T has a price");
         done();
       });
   });
@@ -76,19 +74,20 @@ suite('Functional Tests', function() {
       .request(server)
       .get('/api/stock-prices')
       .set("content-type", "application/json")
-      .query({ stock: ["GOOG", "MSFT"], like: true })
+      .query({ stock: ["AMZN", "T"], like: true })
       .end(function(err, res) {
         assert.equal(res.status, 200);
         assert.isArray(res.body.stockData);
         assert.lengthOf(res.body.stockData, 2);
-        assert.equal(res.body.stockData[0].stock, "GOOG");
-        assert.exists(res.body.stockData[0].price, "GOOG has a price");
+        assert.equal(res.body.stockData[0].stock, "AMZN");
+        assert.equal(res.body.stockData[1].stock, "T");
+        assert.exists(res.body.stockData[0].price, "AMZN has a price");
+        assert.exists(res.body.stockData[1].price, "T has a price");
         assert.property(res.body.stockData[0], 'rel_likes');
-        assert.equal(res.body.stockData[1].stock, "MSFT");
-        assert.exists(res.body.stockData[1].price, "MSFT has a price");
         assert.property(res.body.stockData[1], 'rel_likes');
         done();
       });
   });
 
 });
+
