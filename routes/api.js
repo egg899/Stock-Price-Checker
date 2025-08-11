@@ -1,102 +1,82 @@
-'use strict';
-
+// api.js
+const fetch = require("node-fetch");
 const helmet = require("helmet");
-const axios = require('axios');
-const Stock = require('../models/Stock');
 
 module.exports = function (app) {
+  // Seguridad con Helmet
+  app.use(
+    helmet.contentSecurityPolicy({
+      useDefaults: true,
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'"],
+        styleSrc: ["'self'"],
+      },
+    })
+  );
 
-  // Helmet básico (incluye varias protecciones por defecto)
-  app.use(helmet.hidePoweredBy());
-  app.use(helmet.frameguard({ action: 'DENY' }));
-  app.use(helmet.noSniff());
-  app.use(helmet.ieNoOpen());
+  const stockLikes = {};
 
-  // HSTS por 90 días
-  const ninetyDaysInSeconds = 90 * 24 * 60 * 60;
-  app.use(helmet.hsts({ maxAge: ninetyDaysInSeconds, force: true }));
+  // Función para obtener datos de la API de stocks
+  async function getStockPrice(stock) {
+    const url = `https://stock-price-checker-proxy.freecodecamp.rocks/v1/stock/${stock}/quote`;
+    const res = await fetch(url);
+    const data = await res.json();
+    return {
+      stock: data.symbol,
+      price: data.latestPrice,
+    };
+  }
 
-  app.use(helmet.dnsPrefetchControl());
-
-  // Desactivar cache
-  app.use((req, res, next) => {
-    res.set('Cache-Control', 'no-store');
-    next();
-  });
-
-  // Content Security Policy (solo scripts y CSS del mismo servidor)
-  app.use(helmet.contentSecurityPolicy({
-    directives: {
-      defaultSrc: ["'self'"],
-      scriptSrc: ["'self'"],
-      styleSrc: ["'self'"]
-    }
-  }));
-
-  app.route('/api/stock-prices').get(async (req, res) => {
+  // Endpoint principal
+  app.get("/api/stock-prices", async (req, res) => {
     try {
-      let { stock } = req.query;
-      const like = req.query.like === 'true';
+      let { stock, like } = req.query;
+      const ip = req.ip;
 
       if (!Array.isArray(stock)) {
         stock = [stock];
       }
 
-      stock = stock.map(s => s.replace(/^['"]+|['"]+$/g, ""));
-
-      const userIp = req.ip || req.connection.remoteAddress;
-      const anonymizeIp = (ip) => ip.replace(/\d+$/, '0');
-      const anonIp = anonymizeIp(userIp);
-
       const results = [];
 
-      for (const symbol of stock) {
-        try {
-          const response = await axios.get(
-            `https://stock-price-checker-proxy.freecodecamp.rocks/v1/stock/${symbol}/quote`
-          );
+      for (let s of stock) {
+        s = s.toUpperCase();
+        const stockData = await getStockPrice(s);
 
-          const data = response.data;
-          let stockDoc = await Stock.findOne({ stock: data.symbol });
-
-          if (!stockDoc) {
-            stockDoc = new Stock({ stock: data.symbol, likes: 0, ips: [] });
-          }
-
-          if (like && !stockDoc.ips.includes(anonIp)) {
-            stockDoc.likes++;
-            stockDoc.ips.push(anonIp);
-          }
-
-          await stockDoc.save();
-
-          results.push({
-            stock: data.symbol,
-            price: data.latestPrice,
-            likes: stockDoc.likes
-          });
-
-        } catch (error) {
-          results.push({
-            stock: symbol,
-            error: 'No se pudo obtener la información'
-          });
+        // Manejar likes como número (1 o 0)
+        if (!stockLikes[s]) {
+          stockLikes[s] = { likes: 0, ips: new Set() };
         }
+
+        if (like === "1" && !stockLikes[s].ips.has(ip)) {
+          stockLikes[s].likes++;
+          stockLikes[s].ips.add(ip);
+        }
+
+        results.push({
+          stock: stockData.stock,
+          price: stockData.price,
+          likes: stockLikes[s].likes,
+        });
       }
 
-      if (results.length === 2) {
-        const likes0 = results[0].likes;
-        const likes1 = results[1].likes;
+      if (results.length === 1) {
+        res.json({ stockData: results[0] });
+      } else {
+        const rel_likes1 = results[0].likes - results[1].likes;
+        const rel_likes2 = results[1].likes - results[0].likes;
 
-        results[0].rel_likes = likes0 - likes1;
-        results[1].rel_likes = likes1 - likes0;
+        res.json({
+          stockData: [
+            { stock: results[0].stock, price: results[0].price, rel_likes: rel_likes1 },
+            { stock: results[1].stock, price: results[1].price, rel_likes: rel_likes2 },
+          ],
+        });
       }
-
-      res.json(results);
-
-    } catch (e) {
-      console.error('Error en /api/stock:', e.message);
-      res.status(500).json({ error: 'internal server error' });
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: "Internal Server Error" });
     }
   });
 };
